@@ -24,6 +24,7 @@ PRINT_DEBUG = False
 # **************************************************************
 #                           Libraries
 # **************************************************************
+from queue import PriorityQueue
 from random import randint as rand
 from termcolor import colored
 import numpy
@@ -153,6 +154,14 @@ class Maze:
             list: Returns a list containing the [x, y] coordinate values.
         """
         return [self.__start_position[0], self.__start_position[1]]
+
+    def get_goal_position(self):
+        """Returns the goal start position coordinates [x, y].
+
+        Returns:
+            list: Returns a list containing the [x, y] coordinate values.
+        """
+        return [self.__goal_position[0], self.__goal_position[1]]
 
     # Return value of specified position
     def get_position_value(self, x, y):
@@ -650,6 +659,184 @@ class IDFS_Search(Agent):
         else:
             self._visited = numpy.delete(self._visited, (numpy.shape(self._visited)[0] - 1), axis=0)
             return False
+
+
+class A_Star_Search(Agent):
+    """A* Search Method
+
+    This class implements the A* Search algorithm.
+
+    Args:
+        Agent (object): The search algorithm intelligent agent parent class.
+
+    Returns:
+        object: The A* agent object.
+    """
+
+    def __init__(self):
+        """Initialize the search agent and execute.
+        """
+        # Initialization process
+        Agent.__init__(self)
+        self._goal_position = maze.get_goal_position()
+        self._open = PriorityQueue()
+        self._closed = PriorityQueue()
+        # Execute the search
+        self._cost = self.f(self._start_position[1], self._start_position[0])
+        self.move(self._cost, self._start_position[1], self._start_position[0])
+        # Print the search result
+        print("\n\nDFS - Depth-First Search:")
+        print("Path Length = ", str(numpy.shape(self._path)[0]))
+        # Print the complete path
+        if (PRINT_INFO == True):
+            print("Path = \t", self._path[0, :])
+            for i in range(1, numpy.shape(self._path)[0]):
+                print("\t", self._path[i, :])
+        # Print the result map
+        maze.print_map()
+
+    def g(self, x, y):
+        """Agent heuristic function that calculates current movement cost.
+
+        This is a heuristic function that represents the exact cost of the path from the starting point to the input 
+        coordinate values. This algorithm uses the Manhattan distance as this is the standard heuristic for a square 
+        grid.
+
+        Args:
+            x (int): The selected position x coordinate.
+            y (int): The selected position y coordinate.
+
+        Returns:
+            int: The movement cost estimation.
+        """
+        dx = abs(x - self._start_position[0])
+        dy = abs(y - self._start_position[1])
+        return (dx + dy)
+
+    def h(self, x, y):
+        """Agent heuristic function the calculates the goal movement cost.
+
+        This is a heuristic function that estimates the cost of the cheapest path from the input coordinate values to 
+        the goal. This algorithm uses the Manhattan distance as this is the standard heuristic for a square grid.
+
+        Args:
+            x (int): The selected position x coordinate.
+            y (int): The selected position y coordinate.
+
+        Returns:
+            int: The movement cost estimation.
+        """
+        dx = abs(x - self._goal_position[0])
+        dy = abs(y - self._goal_position[1])
+        return (dx + dy)
+
+    def f(self, x, y):
+        """Agent heuristic function the calculates cost of the selected coordinate.
+
+        This is a heuristic function that estimates the total movement cost of the input coordinate. This algorithm uses
+        the Manhattan distance as this is the standard heuristic for a square grid.
+
+        Args:
+            x (int): The selected position x coordinate.
+            y (int): The selected position y coordinate.
+
+        Returns:
+            int: The movement cost estimation.
+        """
+        return (self.g(x, y) + self.h(x, y))
+
+    def move(self, cost, x, y):
+        """Agent movement method.
+
+        Args:
+            cost (int): current node total movement cost.
+            x (int): The selected position x coordinate.
+            y (int): The selected position y coordinate.
+
+        Returns:
+            bool: The movement result, where True means the goal position is reached and False that it hasn't.
+        """
+
+        # Update current coordinate
+        current = [y, x]
+        # Update the visited positions list
+        self._closed.put((cost, current))
+
+        # Print current movement step
+        if (PRINT_DEBUG == True):
+            maze.set_path(x, y)
+            maze.print_map()
+            print("Current position = ", current)
+            input("PRESS ANY KEY TO CONTINUE...")
+            maze.clear_path()
+
+        # Test for goal position
+        # If True, set path and return True
+        if (self.is_goal_position(x, y)):
+            self._path = numpy.array([[y, x]])
+            maze.set_path(x, y)
+            return True
+
+        # If the current position isn't the goal,
+
+        # Search on upper coordinate
+        # Check if the position is part of an path,
+        if (maze.get_position_value(x, (y + 1)) != 1):
+            if (self.is_agent_new(x, (y + 1))):
+
+                # Move to this coordinate.
+                # If this action returns True, the goal was found.
+                # Save the current coordinate as part of the path and return True
+                if (self.move(x, (y + 1))):
+                    pos = numpy.array([[y, x]])
+                    self._path = numpy.concatenate((pos, self._path), axis=0)
+                    maze.set_path(x, y)
+                    return True
+
+        # Search on lower coordinate
+        # If the position is part of an path,
+        if (maze.get_position_value(x, (y - 1)) != 1):
+            if (self.is_agent_new(x, (y - 1))):
+
+                # Move to this coordinate.
+                # If this action returns True, the goal was found.
+                # Save the current coordinate as part of the path and return True
+                if (self.move(x, (y - 1))):
+                    pos = numpy.array([[y, x]])
+                    self._path = numpy.concatenate((pos, self._path), axis=0)
+                    maze.set_path(x, y)
+                    return True
+
+        # Search on left coordinate
+        # If the position is part of an path,
+        if (maze.get_position_value((x - 1), y) != 1):
+            if (self.is_agent_new((x - 1), y)):
+
+                # Move to this coordinate.
+                # If this action returns True, the goal was found.
+                # Save the current coordinate as part of the path and return True
+                if (self.move((x - 1), y)):
+                    pos = numpy.array([[y, x]])
+                    self._path = numpy.concatenate((pos, self._path), axis=0)
+                    maze.set_path(x, y)
+                    return True
+
+        # Search on right coordinate
+        # If the position is part of an path,
+        if (maze.get_position_value((x + 1), y) != 1):
+            if (self.is_agent_new((x + 1), y)):
+
+                # Move to this coordinate.
+                # If this action returns True, the goal was found.
+                # Save the current coordinate as part of the path and return True
+                if (self.move((x + 1), y)):
+                    pos = numpy.array([[y, x]])
+                    self._path = numpy.concatenate((pos, self._path), axis=0)
+                    maze.set_path(x, y)
+                    return True
+
+        # If none of its neighbors is part of path, return false
+        return False
 
 
 # **************************************************************
