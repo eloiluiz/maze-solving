@@ -13,7 +13,7 @@ A* Search Method
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __status__ = "Development"
 
 # **************************************************************
@@ -50,7 +50,7 @@ class Maze:
     SELECTED_WALL_INDEX = 9
     SELECTED_START_INDEX = 10
     SELECTED_GOAL_INDEX = 11
-    
+
     def __init__(self, width=5, height=5, complexity=0.75, density=0.75):
         """Initializes the maze creation class.
 
@@ -262,10 +262,22 @@ class Maze:
         """
         for y in range(((self.__height // 2) * 2) + 1):
             for x in range(((self.__width // 2) * 2) + 1):
-                if (self.__map[y, x] == 4):
-                    self.__map[y, x] = 0
-                elif (self.__map[y, x] == 5):
-                    self.__map[y, x] = 3
+                if (self.__map[y, x] == self.SELECTED_HALL_INDEX):
+                    self.__map[y, x] = self.HALL_INDEX
+                elif (self.__map[y, x] == self.SELECTED_WALL_INDEX):
+                    self.__map[y, x] = self.WALL_INDEX
+                elif (self.__map[y, x] == self.SELECTED_START_INDEX):
+                    self.__map[y, x] = self.START_INDEX
+                elif (self.__map[y, x] == self.SELECTED_GOAL_INDEX):
+                    self.__map[y, x] = self.GOAL_INDEX
+                elif (self.__map[y, x] == self.MARKED_HALL_INDEX):
+                    self.__map[y, x] = self.HALL_INDEX
+                elif (self.__map[y, x] == self.MARKED_WALL_INDEX):
+                    self.__map[y, x] = self.WALL_INDEX
+                elif (self.__map[y, x] == self.MARKED_START_INDEX):
+                    self.__map[y, x] = self.START_INDEX
+                elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
+                    self.__map[y, x] = self.GOAL_INDEX
         self._last_mark = []
 
 
@@ -324,6 +336,7 @@ class Agent:
             list: The mapped path from the start position to the goal.
         """
         return self._path
+
 
 class BFS_Search(Agent):
     """Breadth-First Search Method
@@ -687,6 +700,7 @@ class A_Star_Node:
 
     This class represents a node in the A* search path.
     """
+
     def __init__(self, parent, rank, cost, position):
         self.parent = parent
         self.rank = rank
@@ -702,7 +716,7 @@ class A_Star_Node:
         Returns:
             int: Returns 1 if self rank is bigger, 0 if both are equal and -1 if other rank is bigger.
         """
-        return (self.rank > other.rank) - (self.rank < other.rank) 
+        return (self.rank > other.rank) - (self.rank < other.rank)
 
     def __lt__(self, other):
         """Compare two nodes using the rank attribute as reference.
@@ -860,12 +874,12 @@ class A_Star_Search(Agent):
         self._open.put(current_node)
 
         # Iterate over the open queue
-        while(not self._open.empty()):
+        while (not self._open.empty()):
 
             # Remove the lowest ranking node from the queue
             current_node = self._open.get()
             current_position = current_node.position
-            
+
             # Put the visited node to the closed list
             self._closed.append(current_node)
 
@@ -887,7 +901,7 @@ class A_Star_Search(Agent):
 
             # If current position isn't the goal, search it's neighbors
             for neighbor_position in self.get_neighbors(current_position):
-                
+
                 # First, check if the neighbor is a valid position (open path)
                 neighbor_position_value = self._maze.get_position_value(neighbor_position[0], neighbor_position[1])
                 if (neighbor_position_value == 1):
@@ -905,7 +919,7 @@ class A_Star_Search(Agent):
                 for open_node in self._open.queue:
                     open_position = open_node.position
                     if (neighbor_position == open_position):
-                        if(neighbor_new_cost < neighbor_gcost):
+                        if (neighbor_new_cost < neighbor_gcost):
                             # Remove position from the open queue
                             self._open.queue.remove(open_node)
                         else:
@@ -923,7 +937,8 @@ class A_Star_Search(Agent):
 
                 # If neightbor is not in any of the lists, add it to open
                 if ((is_neighbor_open == False) and (is_neighbor_closed == False)):
-                    neighbor_node = A_Star_Node(current_node, neighbor_new_cost + self.f(neighbor_position), neighbor_new_cost, neighbor_position)
+                    neighbor_node = A_Star_Node(current_node, neighbor_new_cost + self.f(neighbor_position),
+                                                neighbor_new_cost, neighbor_position)
                     self._open.put(neighbor_node)
 
         # If the open list gets empty, the goal was not found
@@ -944,21 +959,21 @@ if __name__ == "__main__":
     maze.set_path(bfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
-    
+
     # Solve the maze using the DFS algorithm
     dfs_agent = DFS_Search(maze)
     maze.set_path(dfs_agent.get_path())
     print("\n DFS Search:")
     maze.print_map()
     maze.clear_path()
-    
+
     # Solve the maze using the IDFS algorithm
     idfs_agent = IDFS_Search(maze)
     print("\n IDFS Search:")
     maze.set_path(idfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
-    
+
     # Solve the maze using the A* algorithm
     as_agent = A_Star_Search(maze)
     print("\n A* - A* Search:")
@@ -969,19 +984,10 @@ if __name__ == "__main__":
     print("\n Search Summary")
     summary = queue.PriorityQueue()
     summary.put((len(bfs_agent.get_path()), "BFS:"))
-    summary.put((len(dfs_agent.get_path()),"DFS:"))
-    summary.put((len(idfs_agent.get_path()),"IDFS:"))
-    summary.put((len(as_agent.get_path()),"A*:"))
+    summary.put((len(dfs_agent.get_path()), "DFS:"))
+    summary.put((len(idfs_agent.get_path()), "IDFS:"))
+    summary.put((len(as_agent.get_path()), "A*:"))
 
-    while(not summary.empty()):
+    while (not summary.empty()):
         length, name = summary.get()
         print(" " + name + "\t" + str(length))
-
-    # # Print the search result
-    # print("\n\nA* - A* Search:")
-    # print("Path Length = ", str(len(path)))
-    # # Print the complete path
-    # if (PRINT_INFO == True):
-    #     print("Path = ", path)
-    # # Print the result map
-    # maze.print_map()
