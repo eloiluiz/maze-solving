@@ -13,7 +13,7 @@ A* Search Method
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __status__ = "Development"
 
 # **************************************************************
@@ -923,7 +923,7 @@ class A_Star_Search(Agent):
 
                 # If neightbor is not in any of the lists, add it to open
                 if ((is_neighbor_open == False) and (is_neighbor_closed == False)):
-                    neighbor_node = A_Star_Node(current_node, self.f(neighbor_position), neighbor_gcost, neighbor_position)
+                    neighbor_node = A_Star_Node(current_node, neighbor_new_cost + self.f(neighbor_position), neighbor_new_cost, neighbor_position)
                     self._open.put(neighbor_node)
 
         # If the open list gets empty, the goal was not found
@@ -941,13 +941,13 @@ if __name__ == "__main__":
     # Solve the maze using the BFS algorithm
     bfs_agent = BFS_Search(maze)
     print("\n BFS Search:")
-    # maze.set_path(bfs_agent.get_path())
+    maze.set_path(bfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
     
     # Solve the maze using the DFS algorithm
     dfs_agent = DFS_Search(maze)
-    # maze.set_path(dfs_agent.get_path())
+    maze.set_path(dfs_agent.get_path())
     print("\n DFS Search:")
     maze.print_map()
     maze.clear_path()
@@ -955,7 +955,7 @@ if __name__ == "__main__":
     # Solve the maze using the IDFS algorithm
     idfs_agent = IDFS_Search(maze)
     print("\n IDFS Search:")
-    # maze.set_path(idfs_agent.get_path())
+    maze.set_path(idfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
     
@@ -967,10 +967,16 @@ if __name__ == "__main__":
     maze.clear_path()
 
     print("\n Search Summary")
-    print(" BFS:  ", str(len(bfs_agent.get_path())))
-    print(" DFS:  ", str(len(dfs_agent.get_path())))
-    print(" IDFS: ", str(len(idfs_agent.get_path())))
-    print(" A*:   ", str(len(as_agent.get_path())))
+    summary = queue.PriorityQueue()
+    summary.put((len(bfs_agent.get_path()), "BFS:"))
+    summary.put((len(dfs_agent.get_path()),"DFS:"))
+    summary.put((len(idfs_agent.get_path()),"IDFS:"))
+    summary.put((len(as_agent.get_path()),"A*:"))
+
+    while(not summary.empty()):
+        length, name = summary.get()
+        print(" " + name + "\t" + str(length))
+
     # # Print the search result
     # print("\n\nA* - A* Search:")
     # print("Path Length = ", str(len(path)))
