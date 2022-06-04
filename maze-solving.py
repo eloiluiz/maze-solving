@@ -13,7 +13,7 @@ A* Search Method
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 __status__ = "Development"
 
 # **************************************************************
@@ -160,17 +160,17 @@ class Maze:
                 elif (self.__map[y, x] == self.MARKED_HALL_INDEX):
                     str = str + colored(' ', 'red', 'on_red')
                 elif (self.__map[y, x] == self.MARKED_WALL_INDEX):
-                    str = str + colored(' ', 'red', 'on_white')
+                    str = str + colored('=', None, 'on_red')
                 elif (self.__map[y, x] == self.MARKED_START_INDEX):
-                    str = str + colored('x', None, 'on_red')
+                    str = str + colored('O', None, 'on_red')
                 elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
                     str = str + colored('x', None, 'on_red')
                 elif (self.__map[y, x] == self.SELECTED_HALL_INDEX):
                     str = str + colored(' ', 'yellow', 'on_yellow')
                 elif (self.__map[y, x] == self.SELECTED_WALL_INDEX):
-                    str = str + colored(' ', 'yellow', 'on_white')
+                    str = str + colored('=', None, 'on_yellow')
                 elif (self.__map[y, x] == self.SELECTED_START_INDEX):
-                    str = str + colored('x', None, 'on_yellow')
+                    str = str + colored('O', None, 'on_yellow')
                 elif (self.__map[y, x] == self.SELECTED_GOAL_INDEX):
                     str = str + colored('x', None, 'on_yellow')
             print(str)
@@ -203,6 +203,33 @@ class Maze:
             int: The selected position value.
         """
         return self.__map[y, x]
+
+    def get_neighbors(self, coordinates=[], y=None, x=None):
+        """Return the selected coordinate neighbors.
+
+        Args:
+            coordinates (list): The movement coordinates [y, x].
+        """
+        # Parse the input parameters
+        _y = 0
+        _x = 0
+        if (len(coordinates) > 0):
+            _y = coordinates[0]
+            _x = coordinates[1]
+        elif ((y != None) and (x != None)):
+            _y = y
+            _x = x
+        else:
+            return []
+        # Get the possible neighbor positions
+        candidate = [[(_y + 1), _x], [(_y - 1), _x], [_y, (_x - 1)], [_y, (_x + 1)]]
+        # Return the valid neighbors
+        neighbor = []
+        for i in range(len(candidate)):
+            if ((candidate[i][0] >= 0) and (candidate[i][1] >= 0) and (candidate[i][0] < self.__height) and
+                (candidate[i][1] < self.__width)):
+                neighbor.append(candidate[i])
+        return neighbor
 
     def get_neighbor_values(self, y, x):
         """Returns the selected coordinate's neighbor values.
@@ -254,6 +281,10 @@ class Maze:
         for y, x in coordinates:
             if (self.__map[y, x] == self.HALL_INDEX):
                 self.__map[y, x] = self.MARKED_HALL_INDEX
+            if (self.__map[y, x] == self.WALL_INDEX):
+                self.__map[y, x] = self.MARKED_WALL_INDEX
+            if (self.__map[y, x] == self.START_INDEX):
+                self.__map[y, x] = self.MARKED_START_INDEX
             elif (self.__map[y, x] == self.GOAL_INDEX):
                 self.__map[y, x] = self.MARKED_GOAL_INDEX
 
@@ -695,23 +726,24 @@ class IDFS_Search(Agent):
             return False
 
 
-class A_Star_Node:
+class AgentSearchNode:
     """A* Search Methode node.
 
     This class represents a node in the A* search path.
     """
 
-    def __init__(self, parent, rank, cost, position):
+    def __init__(self, parent, rank, cost, position, break_wall):
         self.parent = parent
         self.rank = rank
         self.cost = cost
         self.position = position
+        self.break_wall = break_wall
 
     def __cmp__(self, other):
         """Compare two nodes using the rank attribute as reference.
 
         Args:
-            other (A_Star_Node): The other node under comparison.
+            other (AgentSearchNode): The other node under comparison.
 
         Returns:
             int: Returns 1 if self rank is bigger, 0 if both are equal and -1 if other rank is bigger.
@@ -722,7 +754,7 @@ class A_Star_Node:
         """Compare two nodes using the rank attribute as reference.
 
         Args:
-            other (A_Star_Node): The other node under comparison.
+            other (AgentSearchNode): The other node under comparison.
 
         Returns:
             bool: Returns True if self rank is less than other and False otherwise.
@@ -733,7 +765,7 @@ class A_Star_Node:
         """Compare two nodes using the rank attribute as reference.
 
         Args:
-            other (A_Star_Node): The other node under comparison.
+            other (AgentSearchNode): The other node under comparison.
 
         Returns:
             bool: Returns True if self rank is less or equal than other and False otherwise.
@@ -744,7 +776,7 @@ class A_Star_Node:
         """Compare two nodes using the rank attribute as reference.
 
         Args:
-            other (A_Star_Node): The other node under comparison.
+            other (AgentSearchNode): The other node under comparison.
 
         Returns:
             bool: Returns True if self rank is greater than other and False otherwise.
@@ -755,7 +787,7 @@ class A_Star_Node:
         """Compare two nodes using the rank attribute as reference.
 
         Args:
-            other (A_Star_Node): The other node under comparison.
+            other (AgentSearchNode): The other node under comparison.
 
         Returns:
             bool: Returns True if self rank is greater or equal than other and False otherwise.
@@ -763,7 +795,7 @@ class A_Star_Node:
         return (self.rank >= other.rank)
 
 
-class A_Star_Search(Agent):
+class AStarAgent(Agent):
     """A* Search Method
 
     This class implements the A* Search algorithm.
@@ -785,7 +817,7 @@ class A_Star_Search(Agent):
         self._open = queue.PriorityQueue()
         self._closed = []
         # Execute the search
-        start_node = A_Star_Node(0, 0, self.f(self._start_position), self._start_position)
+        start_node = AgentSearchNode(0, 0, self.f(self._start_position), self._start_position, 1)
         self.search(start_node)
 
     def movement_cost(self, origin=[], destination=[]):
@@ -848,21 +880,11 @@ class A_Star_Search(Agent):
         """
         return (self.g(coordinates) + self.h(coordinates))
 
-    def get_neighbors(self, coordinates=[]):
-        """Return the selected coordinate neighbors.
-
-        Args:
-            coordinates (list): The movement coordinates [y, x].
-        """
-        y = coordinates[0]
-        x = coordinates[1]
-        return [[(y + 1), x], [(y - 1), x], [y, (x - 1)], [y, (x + 1)]]
-
     def search(self, node):
         """Agent search method.
 
         Args:
-            node (A_Star_Node): current A* node used in the search process.
+            node (AgentSearchNode): current A* node used in the search process.
 
         Returns:
             bool: The movement result, where True means the goal position is reached and False that it hasn't.
@@ -900,11 +922,20 @@ class A_Star_Search(Agent):
                 return True
 
             # If current position isn't the goal, search it's neighbors
-            for neighbor_position in self.get_neighbors(current_position):
+            wall_broken = False
+            for neighbor_position in self._maze.get_neighbors(current_position):
+
+                # Reset last iteration wall break counter
+                if (wall_broken == True):
+                    current_node.break_wall += 1
+                    wall_broken = False
 
                 # First, check if the neighbor is a valid position (open path)
                 neighbor_position_value = self._maze.get_position_value(neighbor_position[0], neighbor_position[1])
-                if (neighbor_position_value == 1):
+                if (current_node.break_wall > 0):
+                    current_node.break_wall -= 1
+                    wall_broken = True
+                elif (neighbor_position_value == 1):
                     continue
 
                 # Calculate the neighbor costs (from current and from start position)
@@ -937,8 +968,8 @@ class A_Star_Search(Agent):
 
                 # If neightbor is not in any of the lists, add it to open
                 if ((is_neighbor_open == False) and (is_neighbor_closed == False)):
-                    neighbor_node = A_Star_Node(current_node, neighbor_new_cost + self.f(neighbor_position),
-                                                neighbor_new_cost, neighbor_position)
+                    neighbor_node = AgentSearchNode(current_node, neighbor_new_cost + self.f(neighbor_position),
+                                                    neighbor_new_cost, neighbor_position, current_node.break_wall)
                     self._open.put(neighbor_node)
 
         # If the open list gets empty, the goal was not found
@@ -975,7 +1006,7 @@ if __name__ == "__main__":
     maze.clear_path()
 
     # Solve the maze using the A* algorithm
-    as_agent = A_Star_Search(maze)
+    as_agent = AStarAgent(maze)
     print("\n A* - A* Search:")
     maze.set_path(as_agent.get_path())
     maze.print_map()
