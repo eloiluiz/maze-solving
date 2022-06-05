@@ -7,20 +7,21 @@ This application uses Prim's algorithm to create random mazes and compares diffe
 Breadth-First Search Method
 Depth-First Search Method
 Iterative Depth-First Search Method
+Dijkstra Search Method
 A* Search Method
 
 """
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __status__ = "Development"
 
 # **************************************************************
 #                    Configuration Parameters
 # **************************************************************
 PRINT_INFO = False
-PRINT_DEBUG = True
+PRINT_DEBUG = False
 
 # **************************************************************
 #                           Libraries
@@ -749,11 +750,12 @@ class AgentSearchNode:
     This class represents a node in the A* search path.
     """
 
-    def __init__(self, parent, rank, cost, position, break_wall=0):
+    def __init__(self, parent, rank, cost, position, path, break_wall):
         self.parent = parent
         self.rank = rank
         self.cost = cost
         self.position = position
+        self.agent_path = path
         self.break_wall = break_wall
 
     def __cmp__(self, other):
@@ -831,8 +833,8 @@ class DijkstraAgent(Agent):
         Agent.__init__(self, maze)
         self._path = []
         self._goal_position = self._maze.get_goal_position()
-        self._open = queue.PriorityQueue()
-        self._closed = []
+        self._frontier = queue.PriorityQueue()
+        self._explored = set()
         self._return_first = return_first
         self._break_wall = break_wall
 
@@ -840,7 +842,8 @@ class DijkstraAgent(Agent):
         """Method that starts the goal search process and returns the resulting path.
         """
         # Execute the search
-        start_node = AgentSearchNode(0, 0, self._f(self._start_position), self._start_position, self._break_wall)
+        start_node = AgentSearchNode(0, 0, self._heuristics(self._start_position), self._start_position,
+                                     [self._start_position], self._break_wall)
         return self._search(start_node)
 
     def _movement_cost(self, origin=[], destination=[]):
@@ -860,7 +863,7 @@ class DijkstraAgent(Agent):
         dx = abs(destination[1] - origin[1])
         return (dx + dy)
 
-    def _h(self, coordinates=[]):
+    def _heuristics(self, coordinates=[]):
         """Agent heuristic function the calculates movement costs to the goal position.
 
         This is a heuristic function that estimates the cost of the cheapest path from the input coordinate values to 
@@ -873,20 +876,6 @@ class DijkstraAgent(Agent):
             int: The movement cost estimation.
         """
         return self._movement_cost(coordinates, self._goal_position)
-
-    def _f(self, coordinates=[]):
-        """Agent heuristic function the calculates the total cost of the selected coordinate.
-
-        This is a heuristic function that estimates the total movement cost of the input coordinate. This algorithm uses
-        the Manhattan distance as this is the standard heuristic for a square grid.
-
-        Args:
-            coordinates (list): The movement coordinates [y, x].
-
-        Returns:
-            int: The movement cost estimation.
-        """
-        return self._h(coordinates)
 
     def _search(self, node):
         """Agent search method.
@@ -901,107 +890,90 @@ class DijkstraAgent(Agent):
         # Rename the input node
         current_node = node
         # Update the visited positions list
-        self._open.put(current_node)
+        self._frontier.put(current_node)
 
-        # Iterate over the open queue
-        while (not self._open.empty()):
+        # Iterate over the frontier queue
+        while (not self._frontier.empty()):
 
             # Remove the lowest ranking node from the queue
-            current_node = self._open.get()
+            current_node = self._frontier.get()
             current_position = current_node.position
 
-            # Put the visited node to the closed list
-            self._closed.append(current_node)
+            # Include current node to the explored list
+            self._explored.add(current_node)
 
-            # # Print current movement step
-            # if (PRINT_DEBUG == True):
-            #     self._maze.mark_position(current_position[0], current_position[1])
-            #     self._maze.print_map()
-            #     print("Current position = ", current_position)
-            #     input("PRESS ANY KEY TO CONTINUE...")
-            #     self._maze.clear_path()
+            # Print current movement step
+            if (PRINT_DEBUG == True):
+                print("Current position = ", current_position)
+                for agent_position in current_node.agent_path:
+                    self._maze.mark_position(agent_position[0], agent_position[1])
+                self._maze.select_position(current_position[0], current_position[1])
+                self._maze.print_map()
+                input("PRESS ANY KEY TO CONTINUE...")
+                self._maze.clear_path()
 
             # Test for goal position
-            # If True, store the path found
+            # If True, store the path just found (if it is shorter)
             if (self.is_goal_position(current_position[0], current_position[1])):
-                new_path = []
-                while (current_node != 0):
-                    new_path.append(current_node.position)
-                    current_node = current_node.parent
+                new_path = current_node.agent_path
                 new_path_length = len(new_path)
-                # Check if shortest path
+                # Check for the shorter path
                 if ((self._path_length == 0) or (new_path_length < self._path_length)):
                     self._path = new_path
                     self._path_length = new_path_length
-                # Check if the search must continue
+                # Check if the search must continue or stop at the first path found
                 if (self._return_first == True):
                     return True
                 else:
                     continue
 
             # If current position isn't the goal, search it's neighbors
-            wall_broken = False
             for neighbor_position in self._maze.get_neighbors(current_position):
 
-                # Reset last iteration wall break counter
-                if (wall_broken == True):
-                    current_node.break_wall += 1
-                    wall_broken = False
-
-                # First, check if the neighbor is a valid position (open path)
+                # First, check if the neighbor is a valid position (frontier path or breakable wall)
+                neighbor_break_wall = current_node.break_wall
                 neighbor_position_value = self._maze.get_position_value(neighbor_position[0], neighbor_position[1])
-                if (current_node.break_wall > 0):
-                    current_node.break_wall -= 1
-                    wall_broken = True
-                elif (neighbor_position_value == 1):
+                if (neighbor_position_value == 1):
+                    if (neighbor_break_wall > 0):
+                        neighbor_break_wall -= 1
+                    else:
+                        continue
+
+                # Check if neighbor is at current path already
+                is_neighbor_in_agent_path = False
+                for agent_path_position in current_node.agent_path:
+                    if (neighbor_position == agent_path_position):
+                        is_neighbor_in_agent_path = True
+                        break
+
+                # Checks if the cost of the current path is already greater than the best result found
+                neighbor_path = current_node.agent_path[:]
+                neighbor_path.append(neighbor_position)
+                neighbor_path_length = len(neighbor_path)
+                if ((self._path_length > 0) and (self._path_length < neighbor_path_length)):
+                    # Discard neighbor if it's path is too long
                     continue
 
-                # Calculate the neighbor costs (from current and from start position)
-                neighbor_new_cost = current_node.cost + self._movement_cost(current_position, neighbor_position)
-                neighbor_gcost = self._f(neighbor_position)
-
-                # Check if the neighbor is at any of the open and closed lists
-                is_neighbor_open = False
-                is_neighbor_closed = False
-
-                # Check if neighbor is at the open list and is a viable path
-                for open_node in self._open.queue:
-                    open_position = open_node.position
-                    if (neighbor_position == open_position):
-                        if (neighbor_new_cost < neighbor_gcost):
-                            # Remove position from the open queue
-                            self._open.queue.remove(open_node)
-                        else:
-                            is_neighbor_open = True
-
-                # Check if neighbor is at the closed list and is a viable path
-                for closed_node in self._closed:
-                    closed_position = closed_node.position
-                    if (neighbor_position == closed_position):
-                        if (neighbor_new_cost < neighbor_gcost):
-                            # Remove position from the closed list
-                            self._closed.remove(closed_node)
-                        else:
-                            is_neighbor_closed = True
-
-                # If neightbor is not in any of the lists, add it to open
-                if ((is_neighbor_open == False) and (is_neighbor_closed == False)):
-                    neighbor_node = AgentSearchNode(current_node, neighbor_new_cost + self._f(neighbor_position),
-                                                    neighbor_new_cost, neighbor_position, current_node.break_wall)
-                    self._open.put(neighbor_node)
+                # If neighbor is not in any of the lists, add it to frontier
+                if (is_neighbor_in_agent_path == False):
+                    neighbor_new_cost = current_node.cost + self._movement_cost(current_position, neighbor_position)
+                    neighbor_rank = self._heuristics(neighbor_position)
+                    neighbor_node = AgentSearchNode(current_node, neighbor_rank, neighbor_new_cost, neighbor_position,
+                                                    neighbor_path, neighbor_break_wall)
+                    self._frontier.put(neighbor_node)
 
             # Print current search
             if (PRINT_DEBUG == True):
-                for closed_node in self._closed:
-                    self._maze.mark_position(closed_node.position[0], closed_node.position[1])
-                for open_node in self._open.queue:
-                    self._maze.select_position(open_node.position[0], open_node.position[1])
+                for explored_node in self._explored:
+                    self._maze.mark_position(explored_node.position[0], explored_node.position[1])
+                for frontier_node in self._frontier.queue:
+                    self._maze.select_position(frontier_node.position[0], frontier_node.position[1])
                 self._maze.select_position(current_position[0], current_position[1])
                 self._maze.print_map()
-                input()
+                input("PRESS ANY KEY TO CONTINUE...")
                 self._maze.clear_path()
 
-        # If the open list gets empty, the goal was not found
+        # If the frontier list gets empty, the goal was not found
         return False
 
 
@@ -1024,8 +996,8 @@ class AStarAgent(Agent):
         Agent.__init__(self, maze)
         self._path = []
         self._goal_position = self._maze.get_goal_position()
-        self._open = queue.PriorityQueue()
-        self._closed = []
+        self._frontier = queue.PriorityQueue()
+        self._explored = set()
         self._return_first = return_first
         self._break_wall = break_wall
 
@@ -1033,7 +1005,8 @@ class AStarAgent(Agent):
         """Method that starts the goal search process and returns the resulting path.
         """
         # Execute the search
-        start_node = AgentSearchNode(0, 0, self._f(self._start_position), self._start_position, self._break_wall)
+        start_node = AgentSearchNode(0, 0, self._heuristics(self._start_position), self._start_position,
+                                     [self._start_position], self._break_wall)
         return self._search(start_node)
 
     def _movement_cost(self, origin=[], destination=[]):
@@ -1053,22 +1026,7 @@ class AStarAgent(Agent):
         dx = abs(destination[1] - origin[1])
         return (dx + dy)
 
-    def _g(self, coordinates=[]):
-        """Agent heuristic function that calculates movement costs from the start position.
-
-        This is a heuristic function that represents the exact cost of the path from the start position to the input 
-        coordinate values. This algorithm uses the Manhattan distance as this is the standard heuristic for a square 
-        grid.
-
-        Args:
-            coordinates (list): The movement coordinates [x, y].
-
-        Returns:
-            int: The movement cost estimation.
-        """
-        return self._movement_cost(self._start_position, coordinates)
-
-    def _h(self, coordinates=[]):
+    def _heuristics(self, coordinates=[]):
         """Agent heuristic function the calculates movement costs to the goal position.
 
         This is a heuristic function that estimates the cost of the cheapest path from the input coordinate values to 
@@ -1082,20 +1040,6 @@ class AStarAgent(Agent):
         """
         return self._movement_cost(coordinates, self._goal_position)
 
-    def _f(self, coordinates=[]):
-        """Agent heuristic function the calculates the total cost of the selected coordinate.
-
-        This is a heuristic function that estimates the total movement cost of the input coordinate. This algorithm uses
-        the Manhattan distance as this is the standard heuristic for a square grid.
-
-        Args:
-            coordinates (list): The movement coordinates [y, x].
-
-        Returns:
-            int: The movement cost estimation.
-        """
-        return (self._g(coordinates) + self._h(coordinates))
-
     def _search(self, node):
         """Agent search method.
 
@@ -1108,108 +1052,91 @@ class AStarAgent(Agent):
 
         # Rename the input node
         current_node = node
-        # Update the visited positions list
-        self._open.put(current_node)
+        # Update the frontier list (search border)
+        self._frontier.put(current_node)
 
-        # Iterate over the open queue
-        while (not self._open.empty()):
+        # Iterate over the frontier queue
+        while (not self._frontier.empty()):
 
             # Remove the lowest ranking node from the queue
-            current_node = self._open.get()
+            current_node = self._frontier.get()
             current_position = current_node.position
 
-            # Put the visited node to the closed list
-            self._closed.append(current_node)
+            # Include current node to the explored list
+            self._explored.add(current_node)
 
-            # # Print current movement step
-            # if (PRINT_DEBUG == True):
-            #     self._maze.mark_position(current_position[0], current_position[1])
-            #     self._maze.print_map()
-            #     print("Current position = ", current_position)
-            #     input("PRESS ANY KEY TO CONTINUE...")
-            #     self._maze.clear_path()
+            # Print current movement step
+            if (PRINT_DEBUG == True):
+                print("Current position = ", current_position)
+                for agent_position in current_node.agent_path:
+                    self._maze.mark_position(agent_position[0], agent_position[1])
+                self._maze.select_position(current_position[0], current_position[1])
+                self._maze.print_map()
+                input("PRESS ANY KEY TO CONTINUE...")
+                self._maze.clear_path()
 
             # Test for goal position
-            # If True, store the path found
+            # If True, store the path just found (if it is shorter)
             if (self.is_goal_position(current_position[0], current_position[1])):
-                new_path = []
-                while (current_node != 0):
-                    new_path.append(current_node.position)
-                    current_node = current_node.parent
+                new_path = current_node.agent_path
                 new_path_length = len(new_path)
-                # Check if shortest path
+                # Check for the shorter path
                 if ((self._path_length == 0) or (new_path_length < self._path_length)):
                     self._path = new_path
                     self._path_length = new_path_length
-                # Check if the search must continue
+                # Check if the search must continue or stop at the first path found
                 if (self._return_first == True):
                     return True
                 else:
                     continue
 
             # If current position isn't the goal, search it's neighbors
-            wall_broken = False
             for neighbor_position in self._maze.get_neighbors(current_position):
 
-                # Reset last iteration wall break counter
-                if (wall_broken == True):
-                    current_node.break_wall += 1
-                    wall_broken = False
-
-                # First, check if the neighbor is a valid position (open path)
+                # First, check if the neighbor is a valid position (frontier path or breakable wall)
+                neighbor_break_wall = current_node.break_wall
                 neighbor_position_value = self._maze.get_position_value(neighbor_position[0], neighbor_position[1])
-                if (current_node.break_wall > 0):
-                    current_node.break_wall -= 1
-                    wall_broken = True
-                elif (neighbor_position_value == 1):
+                if (neighbor_position_value == 1):
+                    if (neighbor_break_wall > 0):
+                        neighbor_break_wall -= 1
+                    else:
+                        continue
+
+                # Check if neighbor is at current path already
+                is_neighbor_in_agent_path = False
+                for agent_path_position in current_node.agent_path:
+                    if (neighbor_position == agent_path_position):
+                        is_neighbor_in_agent_path = True
+                        break
+
+                # Checks if the cost of the current path is already greater than the best result found
+                neighbor_path = current_node.agent_path[:]
+                neighbor_path.append(neighbor_position)
+                neighbor_path_length = len(neighbor_path)
+                if ((self._path_length > 0) and (self._path_length < neighbor_path_length)):
+                    # Discard neighbor if it's path is too long
                     continue
 
-                # Calculate the neighbor costs (from current and from start position)
-                neighbor_new_cost = current_node.cost + self._movement_cost(current_position, neighbor_position)
-                neighbor_gcost = self._g(neighbor_position)
-
-                # Check if the neighbor is at any of the open and closed lists
-                is_neighbor_open = False
-                is_neighbor_closed = False
-
-                # Check if neighbor is at the open list and is a viable path
-                for open_node in self._open.queue:
-                    open_position = open_node.position
-                    if (neighbor_position == open_position):
-                        if (neighbor_new_cost < neighbor_gcost):
-                            # Remove position from the open queue
-                            self._open.queue.remove(open_node)
-                        else:
-                            is_neighbor_open = True
-
-                # Check if neighbor is at the closed list and is a viable path
-                for closed_node in self._closed:
-                    closed_position = closed_node.position
-                    if (neighbor_position == closed_position):
-                        if (neighbor_new_cost < closed_node.cost):
-                            # Remove position from the closed list
-                            self._closed.remove(closed_node)
-                        else:
-                            is_neighbor_closed = True
-
-                # If neightbor is not in any of the lists, add it to open
-                if ((is_neighbor_open == False) and (is_neighbor_closed == False)):
-                    neighbor_node = AgentSearchNode(current_node, neighbor_new_cost + self._f(neighbor_position),
-                                                    neighbor_new_cost, neighbor_position, current_node.break_wall)
-                    self._open.put(neighbor_node)
+                # If neighbor is not in any of the lists, add it to frontier
+                if (is_neighbor_in_agent_path == False):
+                    neighbor_new_cost = current_node.cost + self._movement_cost(current_position, neighbor_position)
+                    neighbor_rank = neighbor_new_cost + self._heuristics(neighbor_position)
+                    neighbor_node = AgentSearchNode(current_node, neighbor_rank, neighbor_new_cost, neighbor_position,
+                                                    neighbor_path, neighbor_break_wall)
+                    self._frontier.put(neighbor_node)
 
             # Print current search
             if (PRINT_DEBUG == True):
-                for closed_node in self._closed:
-                    self._maze.mark_position(closed_node.position[0], closed_node.position[1])
-                for open_node in self._open.queue:
-                    self._maze.select_position(open_node.position[0], open_node.position[1])
+                for explored_node in self._explored:
+                    self._maze.mark_position(explored_node.position[0], explored_node.position[1])
+                for frontier_node in self._frontier.queue:
+                    self._maze.select_position(frontier_node.position[0], frontier_node.position[1])
                 self._maze.select_position(current_position[0], current_position[1])
                 self._maze.print_map()
-                input()
+                input("PRESS ANY KEY TO CONTINUE...")
                 self._maze.clear_path()
 
-        # If the open list gets empty, the goal was not found
+        # If the frontier list gets empty, the goal was not found
         return False
 
 
@@ -1220,36 +1147,35 @@ if __name__ == "__main__":
     # Create a randomized map and print
     maze = Maze(50, 10, .75, .75)
     maze.print_map()
-    print("\n")
 
-    # # Solve the maze using the BFS algorithm
-    # bfs_agent = BFS_Search(maze)
-    # print("\n BFS Search:")
-    # maze.set_path(bfs_agent.get_path())
-    # maze.print_map()
-    # maze.clear_path()
+    # Solve the maze using the BFS algorithm
+    bfs_agent = BFS_Search(maze)
+    print("\n BFS Search:")
+    maze.set_path(bfs_agent.get_path())
+    maze.print_map()
+    maze.clear_path()
 
-    # # Solve the maze using the DFS algorithm
-    # dfs_agent = DFS_Search(maze)
-    # maze.set_path(dfs_agent.get_path())
-    # print("\n DFS Search:")
-    # maze.print_map()
-    # maze.clear_path()
+    # Solve the maze using the DFS algorithm
+    dfs_agent = DFS_Search(maze)
+    maze.set_path(dfs_agent.get_path())
+    print("\n DFS Search:")
+    maze.print_map()
+    maze.clear_path()
 
-    # # Solve the maze using the IDFS algorithm
-    # idfs_agent = IDFS_Search(maze)
-    # print("\n IDFS Search:")
-    # maze.set_path(idfs_agent.get_path())
-    # maze.print_map()
-    # maze.clear_path()
+    # Solve the maze using the IDFS algorithm
+    idfs_agent = IDFS_Search(maze)
+    print("\n IDFS Search:")
+    maze.set_path(idfs_agent.get_path())
+    maze.print_map()
+    maze.clear_path()
 
-    # # Solve the maze using the Dijkstra algorithm
-    # dj_agent = DijkstraAgent(maze, return_first=False, break_wall=1)
-    # dj_agent.start()
-    # print("\n Dijkstra - Dijkstra Search:")
-    # maze.set_path(dj_agent.get_path())
-    # maze.print_map()
-    # maze.clear_path()
+    # Solve the maze using the Dijkstra algorithm
+    dijkstra_agent = DijkstraAgent(maze, return_first=False, break_wall=1)
+    dijkstra_agent.start()
+    print("\n Dijkstra - Dijkstra Search:")
+    maze.set_path(dijkstra_agent.get_path())
+    maze.print_map()
+    maze.clear_path()
 
     # Solve the maze using the Dijkstra algorithm
     as_agent = AStarAgent(maze, return_first=False, break_wall=1)
@@ -1261,10 +1187,10 @@ if __name__ == "__main__":
 
     print("\n Search Summary")
     summary = queue.PriorityQueue()
-    # summary.put((len(bfs_agent.get_path()), "BFS:     "))
-    # summary.put((len(dfs_agent.get_path()), "DFS:     "))
-    # summary.put((len(idfs_agent.get_path()), "IDFS:    "))
-    # summary.put((len(dj_agent.get_path()), "Dijkstra:"))
+    summary.put((len(bfs_agent.get_path()), "BFS:     "))
+    summary.put((len(dfs_agent.get_path()), "DFS:     "))
+    summary.put((len(idfs_agent.get_path()), "IDFS:    "))
+    summary.put((len(dijkstra_agent.get_path()), "Dijkstra:"))
     summary.put((len(as_agent.get_path()), "A*:      "))
 
     while (not summary.empty()):
