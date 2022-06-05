@@ -13,7 +13,7 @@ A* Search Method
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __status__ = "Development"
 
 # **************************************************************
@@ -83,8 +83,6 @@ class Maze:
         else:
             self.__density = 0.75
 
-        self._last_mark = []
-
         # Generate the maze
         self.generate()
 
@@ -142,38 +140,6 @@ class Maze:
             if (self.__map[self.__goal_position[0], self.__goal_position[1]] == 0):
                 self.__map[self.__goal_position[0], self.__goal_position[1]] = 3
                 break
-
-    def print_map(self):
-        """Prints the maze on screen.
-        """
-        for y in range((self.__height // 2) * 2 + 1):
-            str = " "
-            for x in range((self.__width // 2) * 2 + 1):
-                if (self.__map[y, x] == self.HALL_INDEX):
-                    str = str + " "
-                elif (self.__map[y, x] == self.WALL_INDEX):
-                    str = str + colored(' ', 'white', 'on_white')
-                elif (self.__map[y, x] == self.START_INDEX):
-                    str = str + colored('O', 'green')
-                elif (self.__map[y, x] == self.GOAL_INDEX):
-                    str = str + colored('x', 'red')
-                elif (self.__map[y, x] == self.MARKED_HALL_INDEX):
-                    str = str + colored(' ', 'red', 'on_red')
-                elif (self.__map[y, x] == self.MARKED_WALL_INDEX):
-                    str = str + colored('=', None, 'on_red')
-                elif (self.__map[y, x] == self.MARKED_START_INDEX):
-                    str = str + colored('O', None, 'on_red')
-                elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
-                    str = str + colored('x', None, 'on_red')
-                elif (self.__map[y, x] == self.SELECTED_HALL_INDEX):
-                    str = str + colored(' ', 'yellow', 'on_yellow')
-                elif (self.__map[y, x] == self.SELECTED_WALL_INDEX):
-                    str = str + colored('=', None, 'on_yellow')
-                elif (self.__map[y, x] == self.SELECTED_START_INDEX):
-                    str = str + colored('O', None, 'on_yellow')
-                elif (self.__map[y, x] == self.SELECTED_GOAL_INDEX):
-                    str = str + colored('x', None, 'on_yellow')
-            print(str)
 
     def get_start_position(self):
         """Returns the defined start position coordinates [y, x].
@@ -243,34 +209,85 @@ class Maze:
         """
         return [self.__map[y + 1, x], self.__map[y - 1, x], self.__map[y, x - 1], self.__map[y, x + 1]]
 
+    def print_map(self):
+        """Prints the maze on screen.
+        """
+        for y in range((self.__height // 2) * 2 + 1):
+            str = " "
+            for x in range((self.__width // 2) * 2 + 1):
+                if (self.__map[y, x] == self.HALL_INDEX):
+                    str = str + " "
+                elif (self.__map[y, x] == self.WALL_INDEX):
+                    str = str + colored(' ', 'white', 'on_white')
+                elif (self.__map[y, x] == self.START_INDEX):
+                    str = str + colored('O', 'green')
+                elif (self.__map[y, x] == self.GOAL_INDEX):
+                    str = str + colored('x', 'red')
+                elif (self.__map[y, x] == self.MARKED_HALL_INDEX):
+                    str = str + colored(' ', 'red', 'on_red')
+                elif (self.__map[y, x] == self.MARKED_WALL_INDEX):
+                    str = str + colored('=', None, 'on_red')
+                elif (self.__map[y, x] == self.MARKED_START_INDEX):
+                    str = str + colored('O', None, 'on_red')
+                elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
+                    str = str + colored('x', None, 'on_red')
+                elif (self.__map[y, x] == self.SELECTED_HALL_INDEX):
+                    str = str + colored(' ', 'yellow', 'on_yellow')
+                elif (self.__map[y, x] == self.SELECTED_WALL_INDEX):
+                    str = str + colored('=', None, 'on_yellow')
+                elif (self.__map[y, x] == self.SELECTED_START_INDEX):
+                    str = str + colored('O', None, 'on_yellow')
+                elif (self.__map[y, x] == self.SELECTED_GOAL_INDEX):
+                    str = str + colored('x', None, 'on_yellow')
+            print(str)
+
     def mark_position(self, y, x):
         """Mark the input position in the map.
+
+        Args:
+            y (int): The marked position y coordinate.
+            x (int): The marked position x coordinate.
+        """
+        if (self.__map[y, x] == self.SELECTED_HALL_INDEX):
+            self.__map[y, x] = self.MARKED_HALL_INDEX
+        elif (self.__map[y, x] == self.SELECTED_WALL_INDEX):
+            self.__map[y, x] = self.MARKED_WALL_INDEX
+        elif (self.__map[y, x] == self.SELECTED_START_INDEX):
+            self.__map[y, x] = self.MARKED_START_INDEX
+        elif (self.__map[y, x] == self.SELECTED_GOAL_INDEX):
+            self.__map[y, x] = self.MARKED_GOAL_INDEX
+        elif (self.__map[y, x] == self.HALL_INDEX):
+            self.__map[y, x] = self.MARKED_HALL_INDEX
+        elif (self.__map[y, x] == self.WALL_INDEX):
+            self.__map[y, x] = self.MARKED_WALL_INDEX
+        elif (self.__map[y, x] == self.START_INDEX):
+            self.__map[y, x] = self.MARKED_START_INDEX
+        elif (self.__map[y, x] == self.GOAL_INDEX):
+            self.__map[y, x] = self.MARKED_GOAL_INDEX
+
+    def select_position(self, y, x):
+        """Select the input position in the map.
 
         Args:
             y (int): The selected position y coordinate.
             x (int): The selected position x coordinate.
         """
-        # Unselect and mark the last position
-        if (self._last_mark != []):
-            if (self.__map[self._last_mark[0], self._last_mark[1]] == self.SELECTED_HALL_INDEX):
-                self.__map[self._last_mark[0], self._last_mark[1]] = self.MARKED_HALL_INDEX
-            elif (self.__map[self._last_mark[0], self._last_mark[1]] == self.SELECTED_WALL_INDEX):
-                self.__map[self._last_mark[0], self._last_mark[1]] = self.MARKED_WALL_INDEX
-            elif (self.__map[self._last_mark[0], self._last_mark[1]] == self.SELECTED_START_INDEX):
-                self.__map[self._last_mark[0], self._last_mark[1]] = self.MARKED_START_INDEX
-            elif (self.__map[self._last_mark[0], self._last_mark[1]] == self.SELECTED_GOAL_INDEX):
-                self.__map[self._last_mark[0], self._last_mark[1]] = self.MARKED_GOAL_INDEX
-        # Select the new position
-        if (self.__map[y, x] == self.HALL_INDEX):
+        if (self.__map[y, x] == self.MARKED_HALL_INDEX):
             self.__map[y, x] = self.SELECTED_HALL_INDEX
-        elif (self.__map[y, x] == self.WALL_INDEX):
+        elif (self.__map[y, x] == self.MARKED_WALL_INDEX):
             self.__map[y, x] = self.SELECTED_WALL_INDEX
-        elif (self.__map[y, x] == self.START_INDEX):
+        elif (self.__map[y, x] == self.MARKED_START_INDEX):
             self.__map[y, x] = self.SELECTED_START_INDEX
-        elif (self.__map[y, x] == self.GOAL_INDEX):
+        elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
             self.__map[y, x] = self.SELECTED_GOAL_INDEX
-        # Update the last mark position
-        self._last_mark = [y, x]
+        elif (self.__map[y, x] == self.HALL_INDEX):
+            self.__map[y, x] = self.MARKED_HALL_INDEX
+        elif (self.__map[y, x] == self.WALL_INDEX):
+            self.__map[y, x] = self.MARKED_WALL_INDEX
+        elif (self.__map[y, x] == self.START_INDEX):
+            self.__map[y, x] = self.MARKED_START_INDEX
+        elif (self.__map[y, x] == self.GOAL_INDEX):
+            self.__map[y, x] = self.MARKED_GOAL_INDEX
 
     def set_path(self, coordinates=[]):
         """Mark the input coordinates in the map.
@@ -309,7 +326,6 @@ class Maze:
                     self.__map[y, x] = self.START_INDEX
                 elif (self.__map[y, x] == self.MARKED_GOAL_INDEX):
                     self.__map[y, x] = self.GOAL_INDEX
-        self._last_mark = []
 
 
 # **************************************************************
@@ -325,6 +341,7 @@ class Agent:
         self._maze = maze
         self._start_position = self._maze.get_start_position()
         self._path = numpy.array([[self._start_position[0], self._start_position[1]]])
+        self._path_length = 0
         self._visited = numpy.array([[self._start_position[0], self._start_position[1]]])
 
     # Goal test method
@@ -732,7 +749,7 @@ class AgentSearchNode:
     This class represents a node in the A* search path.
     """
 
-    def __init__(self, parent, rank, cost, position, break_wall):
+    def __init__(self, parent, rank, cost, position, break_wall=0):
         self.parent = parent
         self.rank = rank
         self.cost = cost
@@ -807,7 +824,7 @@ class AStarAgent(Agent):
         object: The A* agent object.
     """
 
-    def __init__(self, maze):
+    def __init__(self, maze, return_first=True, break_wall=0):
         """Initialize the search agent and execute.
         """
         # Initialization process
@@ -816,8 +833,9 @@ class AStarAgent(Agent):
         self._goal_position = self._maze.get_goal_position()
         self._open = queue.PriorityQueue()
         self._closed = []
+        self._return_first = return_first
         # Execute the search
-        start_node = AgentSearchNode(0, 0, self.f(self._start_position), self._start_position, 1)
+        start_node = AgentSearchNode(0, 0, self.f(self._start_position), self._start_position, break_wall)
         self.search(start_node)
 
     def movement_cost(self, origin=[], destination=[]):
@@ -914,12 +932,22 @@ class AStarAgent(Agent):
                 self._maze.clear_path()
 
             # Test for goal position
-            # If True, set path and return True
+            # If True, store the path found
             if (self.is_goal_position(current_position[0], current_position[1])):
+                new_path = []
                 while (current_node != 0):
-                    self._path.append(current_node.position)
+                    new_path.append(current_node.position)
                     current_node = current_node.parent
-                return True
+                new_path_length = len(new_path)
+                # Check if shortest path
+                if ((self._path_length == 0) or (new_path_length < self._path_length)):
+                    self._path = new_path
+                    self._path_length = new_path_length
+                # Check if the search must continue
+                if (self._return_first == True):
+                    return True
+                else:
+                    continue
 
             # If current position isn't the goal, search it's neighbors
             wall_broken = False
@@ -1006,7 +1034,7 @@ if __name__ == "__main__":
     maze.clear_path()
 
     # Solve the maze using the A* algorithm
-    as_agent = AStarAgent(maze)
+    as_agent = AStarAgent(maze, return_first=False, break_wall=1)
     print("\n A* - A* Search:")
     maze.set_path(as_agent.get_path())
     maze.print_map()
