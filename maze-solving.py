@@ -14,7 +14,7 @@ A* Search Method
 
 __author__ = "Eloi Giacobbo"
 __email__ = "eloiluiz@gmail.com"
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __status__ = "Development"
 
 # **************************************************************
@@ -30,6 +30,7 @@ from random import randint as rand
 from termcolor import colored
 import numpy
 import queue
+import time
 
 
 # **************************************************************
@@ -209,6 +210,15 @@ class Maze:
             list: The neighbor value's list.
         """
         return [self.__map[y + 1, x], self.__map[y - 1, x], self.__map[y, x - 1], self.__map[y, x + 1]]
+
+    def print_map_list(self):
+        print("[")
+        for row in range(len(self.__map)):
+          text = "\t[" + str(self.__map[row, 0]) + ","
+          for column in range(1, len(self.__map[0])):
+              text += (" " + str(self.__map[row, column]) + ",")
+          print(text + "],")
+        print("]")
 
     def print_map(self):
         """Prints the maze on screen.
@@ -745,7 +755,7 @@ class IDFS_Search(Agent):
 
 
 class AgentSearchNode:
-    """A* Search Methode node.
+    """Agent Search Method node.
 
     This class represents a node in the A* search path.
     """
@@ -815,7 +825,7 @@ class AgentSearchNode:
 
 
 class DijkstraAgent(Agent):
-    """Dijkstra Search Method
+    """Dijkstra Search Method.
 
     This class implements the Dijkstra Search algorithm.
 
@@ -1121,7 +1131,7 @@ class AStarAgent(Agent):
                 if (is_neighbor_in_agent_path == False):
                     neighbor_new_cost = current_node.cost + self._movement_cost(current_position, neighbor_position)
                     neighbor_rank = neighbor_new_cost + self._heuristics(neighbor_position)
-                    neighbor_node = AgentSearchNode(current_node, neighbor_rank, neighbor_new_cost, neighbor_position,
+                    neighbor_node = AgentSearchNode(current_node, 0, neighbor_new_cost, neighbor_position,
                                                     neighbor_path, neighbor_break_wall)
                     self._frontier.put(neighbor_node)
 
@@ -1145,54 +1155,68 @@ class AStarAgent(Agent):
 # **************************************************************
 if __name__ == "__main__":
     # Create a randomized map and print
-    maze = Maze(50, 10, .75, .75)
+    maze_height = rand(5, 50)
+    maze_width = rand(5, 50)
+    maze = Maze(maze_height, maze_width, .75, .75)
+    # maze.print_map_list()
     maze.print_map()
 
     # Solve the maze using the BFS algorithm
+    start_time = time.time_ns()
     bfs_agent = BFS_Search(maze)
+    bfs_time = int((time.time_ns() - start_time) / 1000000)
     print("\n BFS Search:")
     maze.set_path(bfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
 
     # Solve the maze using the DFS algorithm
+    start_time = time.time_ns()
     dfs_agent = DFS_Search(maze)
-    maze.set_path(dfs_agent.get_path())
+    dfs_time = int((time.time_ns() - start_time) / 1000000)
     print("\n DFS Search:")
+    maze.set_path(dfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
 
     # Solve the maze using the IDFS algorithm
+    start_time = time.time_ns()
     idfs_agent = IDFS_Search(maze)
+    idfs_time = int((time.time_ns() - start_time) / 1000000)
     print("\n IDFS Search:")
     maze.set_path(idfs_agent.get_path())
     maze.print_map()
     maze.clear_path()
 
     # Solve the maze using the Dijkstra algorithm
+    start_time = time.time_ns()
     dijkstra_agent = DijkstraAgent(maze, return_first=False, break_wall=1)
     dijkstra_agent.start()
+    dijkstra_time = int((time.time_ns() - start_time) / 1000000)
     print("\n Dijkstra - Dijkstra Search:")
     maze.set_path(dijkstra_agent.get_path())
     maze.print_map()
     maze.clear_path()
 
     # Solve the maze using the Dijkstra algorithm
+    start_time = time.time_ns()
     as_agent = AStarAgent(maze, return_first=False, break_wall=1)
     as_agent.start()
+    as_time = int((time.time_ns() - start_time) / 1000000)
     print("\n A* - A* Search:")
     maze.set_path(as_agent.get_path())
     maze.print_map()
     maze.clear_path()
 
     print("\n Search Summary")
+    print("Method\tLength\tTime")
     summary = queue.PriorityQueue()
-    summary.put((len(bfs_agent.get_path()), "BFS:     "))
-    summary.put((len(dfs_agent.get_path()), "DFS:     "))
-    summary.put((len(idfs_agent.get_path()), "IDFS:    "))
-    summary.put((len(dijkstra_agent.get_path()), "Dijkstra:"))
-    summary.put((len(as_agent.get_path()), "A*:      "))
+    summary.put((len(bfs_agent.get_path()), bfs_time, "BFS:     "))
+    summary.put((len(dfs_agent.get_path()), dfs_time, "DFS:     "))
+    summary.put((len(idfs_agent.get_path()), idfs_time, "IDFS:    "))
+    summary.put((len(dijkstra_agent.get_path()), dijkstra_time, "Dijkstra:"))
+    summary.put((len(as_agent.get_path()), as_time, "A*:      "))
 
     while (not summary.empty()):
-        length, name = summary.get()
-        print(" " + name + " " + str(length))
+        length, elapsed_time, name = summary.get()
+        print(" " + name + " " + str(length) + "\t" + str(elapsed_time))
